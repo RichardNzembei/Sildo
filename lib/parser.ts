@@ -1,5 +1,5 @@
 import * as Crypto from "expo-crypto";
-import type { Category } from "@/constants/categories";
+import { channelFromType, type Category } from "@/constants/categories";
 
 export type SmsSourceType = "MPESA" | "KCB" | "LOOP";
 
@@ -14,6 +14,7 @@ export interface ParsedTransaction {
   balance: number;
   date: string;
   category: Category;
+  channel: string;
   person: string;
 }
 
@@ -164,6 +165,7 @@ export function parseMpesaSMS(body: string): ParsedTransaction | null {
     balance,
     date,
     category: categorizeMpesa(body, type),
+    channel: channelFromType(type),
     person,
   };
 }
@@ -262,6 +264,7 @@ export function parseKcbSMS(body: string): ParsedTransaction | null {
     balance: 0,
     date: extractKcbDate(body),
     category,
+    channel: channelFromType(type),
     person,
   };
 }
@@ -370,6 +373,7 @@ export function parseLoopSMS(body: string): ParsedTransaction | null {
     balance: 0,
     date: extractLoopDate(body),
     category,
+    channel: channelFromType(type),
     person: extractLoopPerson(body),
   };
 }

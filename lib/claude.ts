@@ -3,17 +3,13 @@ import { getDB } from "./db";
 import { formatKES, getMonthKey } from "@/constants/categories";
 
 const SYSTEM_PROMPT = `You are Soldi, a personal finance advisor for Richard, a Kenyan user.
-You have access to his full financial picture across three sources:
-- M-PESA: daily mobile money transactions (sends, receives, paybill, airtime, Fuliza)
-- KCB: bank account credits, debits, and loans
-- Loop: salary payments and salary advances
+His money flows: Earn (salary via Loop/KCB) → Pool (M-PESA balance) → Spend (Paybill, Buy Goods, Send Money, Withdrawal, Airtime).
+Money moved from M-PESA to KCB/Loop = savings. Fuliza/loans = debt.
 
-Analyze ALL sources together to give specific, practical advice in simple English.
-Be direct, friendly and occasionally humorous. Always reference actual numbers from the data.
+Analyze his spending by CHANNEL (Paybill, Buy Goods, Send Money, Withdrawal, Airtime & Data) not by guessed categories.
+Be direct, friendly and occasionally humorous. Always reference actual numbers.
 Format currency as KES with commas. Keep responses concise but actionable.
-When asked about spending, break it down by category with exact amounts.
-When discussing debt, consider Fuliza, Loop advances, and KCB loans together.
-When discussing income, distinguish between salary (Loop), bank credits (KCB), and M-PESA receipts.`;
+When discussing savings, compare what he transferred to bank vs what he could save (earnings - spending).`;
 
 export interface ChatMessage {
   id: string;
@@ -57,10 +53,10 @@ async function getTransactionContext(): Promise<string> {
     "SELECT balance FROM transactions WHERE source = 'KCB' ORDER BY date DESC LIMIT 1"
   );
 
-  const categoryBreakdown = await db.getAllAsync<{ category: string; total: number }>(
-    `SELECT category, SUM(paid_out) as total FROM transactions
-     WHERE strftime('%Y-%m', date) = ? AND paid_out > 0
-     GROUP BY category ORDER BY total DESC`,
+  const channelBreakdown = await db.getAllAsync<{ channel: string; total: number }>(
+    `SELECT channel, SUM(paid_out) as total FROM transactions
+     WHERE strftime('%Y-%m', date) = ? AND paid_out > 0 AND channel IS NOT NULL
+     GROUP BY channel ORDER BY total DESC`,
     [currentMonth]
   );
 
@@ -104,9 +100,9 @@ async function getTransactionContext(): Promise<string> {
   context += `Loop Advances: ${formatKES(Math.max(0, (loopAdv?.received ?? 0) - (loopAdv?.repaid ?? 0)))}\n`;
   context += `KCB Loans: ${formatKES(Math.max(0, (kcbLoan?.received ?? 0) - (kcbLoan?.repaid ?? 0)))}\n`;
 
-  context += `\n=== SPENDING BY CATEGORY (This Month) ===\n`;
-  for (const cat of categoryBreakdown) {
-    context += `${cat.category}: ${formatKES(cat.total)}\n`;
+  context += `\n=== SPENDING BY CHANNEL (This Month) ===\n`;
+  for (const ch of channelBreakdown) {
+    context += `${ch.channel}: ${formatKES(ch.total)}\n`;
   }
 
   context += `\n=== RECENT TRANSACTIONS (Last 3 months, up to 100) ===\n`;
@@ -176,11 +172,11 @@ export async function clearChatHistory(): Promise<void> {
 }
 
 export const SUGGESTED_QUESTIONS = [
-  "How did I spend this month?",
-  "Where can I cut costs?",
-  "What's my total debt across all sources?",
+  "Break down my spending by channel this month",
+  "How much did I earn vs spend?",
+  "What's my total debt?",
   "Who am I sending the most money to?",
+  "How much have I saved to bank this month?",
+  "Which spending channel should I cut?",
   "Can I afford to save KES 5,000 this month?",
-  "When is my next Loop repayment?",
-  "How much Fuliza have I used?",
 ];

@@ -22,8 +22,8 @@ async function saveTransaction(parsed: NonNullable<ReturnType<typeof parseSMS>>)
   try {
     const result = await db.runAsync(
       `INSERT OR IGNORE INTO transactions
-      (id, receipt_no, type, source, details, paid_in, paid_out, balance, date, category, person)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, receipt_no, type, source, details, paid_in, paid_out, balance, date, category, person, channel)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         parsed.id,
         parsed.receipt_no,
@@ -36,21 +36,10 @@ async function saveTransaction(parsed: NonNullable<ReturnType<typeof parseSMS>>)
         parsed.date,
         parsed.category,
         parsed.person,
+        parsed.channel,
       ]
     );
     if (result.changes === 0) return false; // duplicate receipt_no
-
-    // Update people table for sends
-    if (parsed.person && parsed.paid_out > 0 && parsed.source === "MPESA") {
-      await db.runAsync(
-        `INSERT INTO people (id, name, phone, total_sent, times_sent)
-         VALUES (?, ?, '', ?, 1)
-         ON CONFLICT(name, phone) DO UPDATE SET
-           total_sent = total_sent + ?,
-           times_sent = times_sent + 1`,
-        [parsed.id + "_p", parsed.person, parsed.paid_out, parsed.paid_out]
-      );
-    }
 
     return true;
   } catch {

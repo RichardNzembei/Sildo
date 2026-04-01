@@ -32,8 +32,19 @@ export default function PeopleScreen() {
   const refresh = useCallback(async () => {
     try {
       const db = await getDB();
+      const orderClause = sortBy === "name" ? "name ASC" : sortBy === "times_sent" ? "times_sent DESC" : "total_sent DESC";
       const rows = await db.getAllAsync<Person>(
-        `SELECT * FROM people ORDER BY ${sortBy === "name" ? "name ASC" : `${sortBy} DESC`}`
+        `SELECT
+          person as id,
+          person as name,
+          '' as phone,
+          COALESCE(SUM(paid_out), 0) as total_sent,
+          COUNT(*) as times_sent,
+          (SELECT monthly_limit FROM people p WHERE p.name = t.person LIMIT 1) as monthly_limit
+        FROM transactions t
+        WHERE person != '' AND type = 'SENT' AND source = 'MPESA'
+        GROUP BY person
+        ORDER BY ${orderClause}`
       );
       setPeople(rows);
     } catch (e) {
@@ -61,10 +72,13 @@ export default function PeopleScreen() {
       return;
     }
     const db = await getDB();
-    await db.runAsync("UPDATE people SET monthly_limit = ? WHERE id = ?", [
-      num,
-      limitModal.id,
-    ]);
+    // Upsert limit into people table by name
+    await db.runAsync(
+      `INSERT INTO people (id, name, phone, total_sent, times_sent, monthly_limit)
+       VALUES (?, ?, '', 0, 0, ?)
+       ON CONFLICT(name, phone) DO UPDATE SET monthly_limit = ?`,
+      [limitModal.name, limitModal.name, num, num]
+    );
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLimitModal(null);
     setLimitAmount("");

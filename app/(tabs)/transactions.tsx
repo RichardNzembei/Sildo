@@ -17,7 +17,7 @@ import * as Sharing from "expo-sharing";
 import * as DocumentPicker from "expo-document-picker";
 import { useTransactions, type Transaction } from "@/hooks/useTransactions";
 import { TransactionCard } from "@/components/TransactionCard";
-import { formatKES, CATEGORIES, type Category } from "@/constants/categories";
+import { formatKES, CHANNELS, type Channel } from "@/constants/categories";
 import { importFromStatement } from "@/lib/sms";
 
 export default function TransactionsScreen() {
@@ -25,7 +25,7 @@ export default function TransactionsScreen() {
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-  const [filterCategory, setFilterCategory] = useState<Category | undefined>();
+  const [filterChannel, setFilterChannel] = useState<Channel | undefined>();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -36,13 +36,13 @@ export default function TransactionsScreen() {
   const handleSearch = useCallback(
     (text: string) => {
       setQuery(text);
-      if (text.length > 1 || filterCategory) {
-        search(text, undefined, undefined, filterCategory);
+      if (text.length > 1 || filterChannel) {
+        search(text, undefined, undefined, filterChannel);
       } else if (text.length === 0) {
         refresh();
       }
     },
-    [search, refresh, filterCategory]
+    [search, refresh, filterChannel]
   );
 
   const handleExport = useCallback(async () => {
@@ -139,26 +139,26 @@ export default function TransactionsScreen() {
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[undefined, ...CATEGORIES]}
+          data={[undefined, ...CHANNELS]}
           keyExtractor={(item) => item ?? "all"}
           style={{ marginTop: 10 }}
           renderItem={({ item }) => (
             <Pressable
               onPress={() => {
-                setFilterCategory(item);
+                setFilterChannel(item);
                 search(query, undefined, undefined, item);
               }}
               style={{
                 paddingHorizontal: 12,
                 paddingVertical: 6,
                 borderRadius: 16,
-                backgroundColor: filterCategory === item ? "#00C853" : "#2A2A3C",
+                backgroundColor: filterChannel === item ? "#00C853" : "#2A2A3C",
                 marginRight: 8,
               }}
             >
               <Text
                 style={{
-                  color: filterCategory === item ? "#fff" : "#6B7280",
+                  color: filterChannel === item ? "#fff" : "#6B7280",
                   fontSize: 12,
                   fontWeight: "600",
                 }}
